@@ -1059,6 +1059,7 @@
 				E654EA861B6B27E600B0F2D0 /* Frameworks */,
 				E654EA871B6B27E600B0F2D0 /* Headers */,
 				E654EA881B6B27E600B0F2D0 /* Resources */,
+				44EB32761FC2D6FF00F7019A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -1148,6 +1149,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		44EB32761FC2D6FF00F7019A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nset +u\n### Avoid recursively calling this script.\nif [[ $UF_MASTER_SCRIPT_RUNNING ]]\nthen\nexit 0\nfi\nset -u\nexport UF_MASTER_SCRIPT_RUNNING=1\n### Constants.\nUF_TARGET_NAME=${PROJECT_NAME}\nFRAMEWORK_VERSION=\"A\"\nUNIVERSAL_OUTPUTFOLDER=${BUILD_DIR}/${CONFIGURATION}-universal\nIPHONE_DEVICE_BUILD_DIR=${BUILD_DIR}/${CONFIGURATION}-iphoneos\nIPHONE_SIMULATOR_BUILD_DIR=${BUILD_DIR}/${CONFIGURATION}-iphonesimulator\n### Functions\n## List files in the specified directory, storing to the specified array.\n#\n# @param $1 The path to list\n# @param $2 The name of the array to fill\n#\n##\nlist_files ()\n{\n    filelist=$(ls \"$1\")\n    while read line\n    do\n    eval \"$2[\\${#$2[*]}]=\\\"\\$line\\\"\"\n    done <<< \"$filelist\"\n}\n### Take build target.\nif [[ \"$SDK_NAME\" =~ ([A-Za-z]+) ]]\nthen\nSF_SDK_PLATFORM=${BASH_REMATCH[1]} # \"iphoneos\" or \"iphonesimulator\".\nelse\necho \"Could not find platform name from SDK_NAME: $SDK_NAME\"\nexit 1\nfi\n### Build simulator platform. (i386, x86_64)\n\necho \"===== Build Simulator Platform: i386 =====\"\nxcodebuild -project \"${PROJECT_FILE_PATH}\" -target \"${TARGET_NAME}\" -configuration \"${CONFIGURATION}\" -sdk iphonesimulator BUILD_DIR=\"${BUILD_DIR}\" OBJROOT=\"${OBJROOT}\" BUILD_ROOT=\"${BUILD_ROOT}\" CONFIGURATION_BUILD_DIR=\"${IPHONE_SIMULATOR_BUILD_DIR}/i386\" SYMROOT=\"${SYMROOT}\" ARCHS='i386' VALID_ARCHS='i386' $ACTION\necho \"===== Build Simulator Platform: x86_64 =====\"\nxcodebuild -project \"${PROJECT_FILE_PATH}\" -target \"${TARGET_NAME}\" -configuration \"${CONFIGURATION}\" -sdk iphonesimulator BUILD_DIR=\"${BUILD_DIR}\" OBJROOT=\"${OBJROOT}\" BUILD_ROOT=\"${BUILD_ROOT}\" CONFIGURATION_BUILD_DIR=\"${IPHONE_SIMULATOR_BUILD_DIR}/x86_64\" SYMROOT=\"${SYMROOT}\" ARCHS='x86_64' VALID_ARCHS='x86_64' $ACTION\n### Build device platform. (armv7, arm64)\necho \"========== Build Device Platform ==========\"\necho \"===== Build Device Platform: armv7 =====\"\nxcodebuild -project \"${PROJECT_FILE_PATH}\" -target \"${TARGET_NAME}\" -configuration \"${CONFIGURATION}\" -sdk iphoneos BUILD_DIR=\"${BUILD_DIR}\" OBJROOT=\"${OBJROOT}\" BUILD_ROOT=\"${BUILD_ROOT}\"  CONFIGURATION_BUILD_DIR=\"${IPHONE_DEVICE_BUILD_DIR}/armv7\" SYMROOT=\"${SYMROOT}\" ARCHS='armv7' VALID_ARCHS='armv7' $ACTION\necho \"===== Build Device Platform: arm64 =====\"\nxcodebuild -project \"${PROJECT_FILE_PATH}\" -target \"${TARGET_NAME}\" -configuration \"${CONFIGURATION}\" -sdk iphoneos BUILD_DIR=\"${BUILD_DIR}\" OBJROOT=\"${OBJROOT}\" BUILD_ROOT=\"${BUILD_ROOT}\" CONFIGURATION_BUILD_DIR=\"${IPHONE_DEVICE_BUILD_DIR}/arm64\" SYMROOT=\"${SYMROOT}\" ARCHS='arm64' VALID_ARCHS='arm64' $ACTION\n### Build universal platform.\necho \"========== Build Universal Platform ==========\"\n## Copy the framework structure to the universal folder (clean it first).\nrm -rf \"${UNIVERSAL_OUTPUTFOLDER}\"\nmkdir -p \"${UNIVERSAL_OUTPUTFOLDER}\"\n## Copy the last product files of xcodebuild command.\ncp -R \"${IPHONE_DEVICE_BUILD_DIR}/arm64/${TARGET_NAME}.framework\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework\"\n### Smash them together to combine all architectures.\nlipo -create \"${BUILD_DIR}/${CONFIGURATION}-iphonesimulator/x86_64/${TARGET_NAME}.framework/${TARGET_NAME}\" \"${BUILD_DIR}/${CONFIGURATION}-iphoneos/armv7/${TARGET_NAME}.framework/${TARGET_NAME}\" \"${BUILD_DIR}/${CONFIGURATION}-iphoneos/arm64/${TARGET_NAME}.framework/${TARGET_NAME}\" -output \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/${TARGET_NAME}\"\n### Create standard structure for framework.\n#\n# If we don't have \"Info.plist -> Versions/Current/Resources/Info.plist\", we may get error when use this framework.\n#\n# MyFramework.framework\n# |-- MyFramework -> Versions/Current/MyFramework\n# |-- Headers -> Versions/Current/Headers\n# |-- Resources -> Versions/Current/Resources\n# |-- Info.plist -> Versions/Current/Resources/Info.plist\n# `-- Versions\n#     |-- A\n#     |   |-- MyFramework\n#     |   |-- Headers\n#     |   |   `-- MyFramework.h\n#     |   `-- Resources\n#     |       |-- Info.plist\n#     |       |-- MyViewController.nib\n#     |       `-- en.lproj\n#     |           `-- InfoPlist.strings\n#     `-- Current -> A\n#\necho \"========== Create Standard Structure ==========\"\nmkdir -p \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Versions/${FRAMEWORK_VERSION}/\"\nmv \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/${TARGET_NAME}\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Versions/${FRAMEWORK_VERSION}/\"\nmv \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Headers\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Versions/${FRAMEWORK_VERSION}/\"\nmkdir -p \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Resources\"\ndeclare -a UF_FILE_LIST\nlist_files \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/\" UF_FILE_LIST\nfor file_name in \"${UF_FILE_LIST[@]}\"\ndo\nif [[ \"${file_name}\" == \"Info.plist\" ]] || [[ \"${file_name}\" =~ .*\\.lproj$ ]]\nthen\nmv \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/${file_name}\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Resources/\"\nfi\ndone\nmv \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Resources\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Versions/${FRAMEWORK_VERSION}/\"\nln -sfh \"Versions/Current/Resources/Info.plist\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Info.plist\"\nln -sfh \"${FRAMEWORK_VERSION}\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Versions/Current\"\nln -sfh \"Versions/Current/${PROJECT_NAME}\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/${PROJECT_NAME}\"\nln -sfh \"Versions/Current/Headers\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Headers\"\nln -sfh \"Versions/Current/Resources\" \"${UNIVERSAL_OUTPUTFOLDER}/${TARGET_NAME}.framework/Resources\"\n### Open the universal folder.\nopen \"${UNIVERSAL_OUTPUTFOLDER}\"\n\n#lipo -create \"./Debug-iphoneos/armv7/IJKMediaFramework.framework/IJKMediaFramework\" \"./Debug-iphonesimulator/x86_64/IJKMediaFramework.framework/IJKMediaFramework\" \"./Debug-iphoneos/arm64/IJKMediaFramework.framework/IJKMediaFramework\" ./Debug-iphonesimulator/i386/IJKMediaFramework.framework/IJKMediaFramework -output IJKMediaFramework";
+		};
 		544E73271D93DEF4005CA5D9 /* ijkversion.h */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -1519,7 +1533,7 @@
 				);
 				INFOPLIST_FILE = IJKMediaFramework/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1527,10 +1541,12 @@
 				);
 				MACH_O_TYPE = staticlib;
 				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "tv.danmaku.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = "arm64 armv7 armv7s";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -1565,7 +1581,7 @@
 				);
 				INFOPLIST_FILE = IJKMediaFramework/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1573,10 +1589,12 @@
 				);
 				MACH_O_TYPE = staticlib;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "tv.danmaku.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = "arm64 armv7 armv7s";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};

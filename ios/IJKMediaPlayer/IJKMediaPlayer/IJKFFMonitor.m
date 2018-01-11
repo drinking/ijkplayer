@@ -55,8 +55,8 @@
 - (int64_t)     bitrate     {return [_mediaMeta[@IJKM_KEY_BITRATE] longLongValue];}
 - (int)         width       {return [_videoMeta[@IJKM_KEY_WIDTH] intValue];}
 - (int)         height      {return [_videoMeta[@IJKM_KEY_HEIGHT] intValue];}
-- (NSString *)  vcodec      {return [NSString ijk_stringBeEmptyIfNil:_videoMeta[@IJKM_KEY_CODEC_NAME]];}
-- (NSString *)  acodec      {return [NSString ijk_stringBeEmptyIfNil:_audioMeta[@IJKM_KEY_CODEC_NAME]];}
+- (NSString *)  vcodec      {return _videoMeta[@IJKM_KEY_CODEC_NAME]?:@"";}
+- (NSString *)  acodec      {return _audioMeta[@IJKM_KEY_CODEC_NAME]?:@"";}
 - (int)         sampleRate    {return [_audioMeta[@IJKM_KEY_SAMPLE_RATE] intValue];}
 - (int64_t)     channelLayout {return [_audioMeta[@IJKM_KEY_CHANNEL_LAYOUT] longLongValue];}
 

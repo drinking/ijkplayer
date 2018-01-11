@@ -1361,8 +1361,8 @@ static int onInjectOnHttpEvent(IJKFFMoviePlayerController *mpc, int type, void *
             [mpc setHudUrl:url];
 
             if (delegate != nil) {
-                dict[IJKMediaEventAttrKey_host]         = [NSString ijk_stringBeEmptyIfNil:host];
-                dict[IJKMediaEventAttrKey_url]          = [NSString ijk_stringBeEmptyIfNil:monitor.httpUrl];
+                dict[IJKMediaEventAttrKey_host]         = host?:@"";
+                dict[IJKMediaEventAttrKey_url]          = monitor.httpUrl?:@"";
                 [delegate invoke:type attributes:dict];
             }
             break;
@@ -1377,8 +1377,8 @@ static int onInjectOnHttpEvent(IJKFFMoviePlayerController *mpc, int type, void *
 
             if (delegate != nil) {
                 dict[IJKMediaEventAttrKey_time_of_event]    = @(elapsed).stringValue;
-                dict[IJKMediaEventAttrKey_url]              = [NSString ijk_stringBeEmptyIfNil:monitor.httpUrl];
-                dict[IJKMediaEventAttrKey_host]             = [NSString ijk_stringBeEmptyIfNil:host];
+                dict[IJKMediaEventAttrKey_url]              = monitor.httpUrl?:@"";
+                dict[IJKMediaEventAttrKey_host]             = host?:@"";
                 dict[IJKMediaEventAttrKey_error]            = @(realData->error).stringValue;
                 dict[IJKMediaEventAttrKey_http_code]        = @(realData->http_code).stringValue;
                 [delegate invoke:type attributes:dict];
@@ -1388,7 +1388,7 @@ static int onInjectOnHttpEvent(IJKFFMoviePlayerController *mpc, int type, void *
             monitor.httpSeekTick = SDL_GetTickHR();
 
             if (delegate != nil) {
-                dict[IJKMediaEventAttrKey_host]         = [NSString ijk_stringBeEmptyIfNil:host];
+                dict[IJKMediaEventAttrKey_host]         = host?:@"";
                 dict[IJKMediaEventAttrKey_offset]       = @(realData->offset).stringValue;
                 [delegate invoke:type attributes:dict];
             }
@@ -1404,8 +1404,8 @@ static int onInjectOnHttpEvent(IJKFFMoviePlayerController *mpc, int type, void *
 
             if (delegate != nil) {
                 dict[IJKMediaEventAttrKey_time_of_event]    = @(elapsed).stringValue;
-                dict[IJKMediaEventAttrKey_url]              = [NSString ijk_stringBeEmptyIfNil:monitor.httpUrl];
-                dict[IJKMediaEventAttrKey_host]             = [NSString ijk_stringBeEmptyIfNil:host];
+                dict[IJKMediaEventAttrKey_url]              = monitor.httpUrl?:@"";
+                dict[IJKMediaEventAttrKey_host]             = host?:@"";
                 dict[IJKMediaEventAttrKey_offset]           = @(realData->offset).stringValue;
                 dict[IJKMediaEventAttrKey_error]            = @(realData->error).stringValue;
                 dict[IJKMediaEventAttrKey_http_code]        = @(realData->http_code).stringValue;
@@ -1608,7 +1608,9 @@ static int ijkff_inject_callback(void *opaque, int message, void *data, size_t d
             NSLog(@"IJKFFMoviePlayerController:audioSessionInterrupt: end\n");
             [[IJKAudioKit sharedInstance] setActive:YES];
             if (_playingBeforeInterruption) {
-                [self play];
+                if([[UIApplication sharedApplication] applicationState] == UIApplicationStateActive){
+                    [self play];
+                }
             }
             break;
         }
