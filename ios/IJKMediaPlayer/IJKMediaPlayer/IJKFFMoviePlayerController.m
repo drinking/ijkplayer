@@ -216,34 +216,13 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
         _glView = [[IJKSDLGLView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
         _glView.isThirdGLView = NO;
         _view = _glView;
-        _hudViewController = [[IJKSDLHudViewController alloc] init];
-        [_hudViewController setRect:_glView.frame];
-        _shouldShowHudView = NO;
-        _hudViewController.tableView.hidden = YES;
-        [_view addSubview:_hudViewController.tableView];
-
-        [self setHudValue:nil forKey:@"scheme"];
-        [self setHudValue:nil forKey:@"host"];
-        [self setHudValue:nil forKey:@"path"];
-        [self setHudValue:nil forKey:@"ip"];
-        [self setHudValue:nil forKey:@"tcp-info"];
-        [self setHudValue:nil forKey:@"http"];
-        [self setHudValue:nil forKey:@"tcp-spd"];
-        [self setHudValue:nil forKey:@"t-prepared"];
-        [self setHudValue:nil forKey:@"t-render"];
-        [self setHudValue:nil forKey:@"t-preroll"];
-        [self setHudValue:nil forKey:@"t-http-open"];
-        [self setHudValue:nil forKey:@"t-http-seek"];
         
+        _shouldShowHudView = NO;
         self.shouldShowHudView = options.showHudView;
 
         ijkmp_ios_set_glview(_mediaPlayer, _glView);
         ijkmp_set_option(_mediaPlayer, IJKMP_OPT_CATEGORY_PLAYER, "overlay-format", "fcc-_es2");
-#ifdef DEBUG
-        [IJKFFMoviePlayerController setLogLevel:k_IJK_LOG_DEBUG];
-#else
-        [IJKFFMoviePlayerController setLogLevel:k_IJK_LOG_SILENT];
-#endif
+        
         // init audio sink
         [[IJKAudioKit sharedInstance] setupAudioSession];
 
@@ -340,13 +319,8 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
         self.shouldShowHudView = options.showHudView;
 
         ijkmp_ios_set_glview(_mediaPlayer, _glView);
-
         ijkmp_set_option(_mediaPlayer, IJKMP_OPT_CATEGORY_PLAYER, "overlay-format", "fcc-_es2");
-#ifdef DEBUG
-        [IJKFFMoviePlayerController setLogLevel:k_IJK_LOG_DEBUG];
-#else
-        [IJKFFMoviePlayerController setLogLevel:k_IJK_LOG_SILENT];
-#endif
+        
         // init audio sink
         [[IJKAudioKit sharedInstance] setupAudioSession];
 
@@ -934,6 +908,27 @@ inline static NSString *formatedSpeed(int64_t bytes, int64_t elapsed_milli) {
     if (shouldShowHudView == _shouldShowHudView) {
         return;
     }
+    
+    if(!_hudViewController && _shouldShowHudView) {
+        _hudViewController = [[IJKSDLHudViewController alloc] init];
+        [_hudViewController setRect:_glView.frame];
+        _hudViewController.tableView.hidden = YES;
+        [_view addSubview:_hudViewController.tableView];
+        
+        [self setHudValue:nil forKey:@"scheme"];
+        [self setHudValue:nil forKey:@"host"];
+        [self setHudValue:nil forKey:@"path"];
+        [self setHudValue:nil forKey:@"ip"];
+        [self setHudValue:nil forKey:@"tcp-info"];
+        [self setHudValue:nil forKey:@"http"];
+        [self setHudValue:nil forKey:@"tcp-spd"];
+        [self setHudValue:nil forKey:@"t-prepared"];
+        [self setHudValue:nil forKey:@"t-render"];
+        [self setHudValue:nil forKey:@"t-preroll"];
+        [self setHudValue:nil forKey:@"t-http-open"];
+        [self setHudValue:nil forKey:@"t-http-seek"];
+    }
+    
     _shouldShowHudView = shouldShowHudView;
     if (shouldShowHudView)
         [self startHudTimer];
@@ -1323,7 +1318,7 @@ inline static void fillMetaInternal(NSMutableDictionary *meta, IjkMediaMeta *raw
             // NSLog(@"unknown FFP_MSG_xxx(%d)\n", avmsg->what);
             break;
     }
-
+    [self.playerEventDelegate didPlayerEventChanged:avmsg->what];
     [_msgPool recycle:msg];
 }
 
@@ -1551,6 +1546,8 @@ static int onInjectOnHttpEvent(IJKFFMoviePlayerController *mpc, int type, void *
             }
             break;
     }
+    
+    [mpc.playerEventDelegate didPlayerHTTPStateChanged:monitor];
 
     return 0;
 }
@@ -1796,6 +1793,10 @@ static int ijkff_inject_callback(void *opaque, int message, void *data, size_t d
 #pragma mark IJKFFHudController
 - (void)setHudValue:(NSString *)value forKey:(NSString *)key
 {
+    if(!self.shouldShowHudView) {
+        return;
+    }
+    
     if ([[NSThread currentThread] isMainThread]) {
         [_hudViewController setHudValue:value forKey:key];
     } else {

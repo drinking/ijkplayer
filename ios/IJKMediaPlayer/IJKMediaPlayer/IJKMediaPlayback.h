@@ -225,3 +225,11 @@ typedef NS_ENUM(NSInteger, IJKMediaEvent) {
 - (int)invoke:(IJKMediaEvent)event attributes:(NSDictionary *)attributes;
 
 @end
+
+@protocol IJKMediaPlayerEventDelegate <NSObject>
+
+- (void)didPlayerEventChanged:(NSInteger)event;
+
+- (void)didPlayerHTTPStateChanged:(id)monitor;
+
+@end
